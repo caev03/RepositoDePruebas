@@ -8,7 +8,7 @@
 * :chart_with_upwards_trend: [David Ricardo Mayorga](https://github.com/damayor)
 
 ## Index
-1. [Problem Description](https://github.com/caev03/RepositoDePruebas/new/master?readme=1#problem-description)
+1. [Problem Description](https://github.com/caev03/RepositoDePruebas#problem-description)
 
 ## Problem Description
 
