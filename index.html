@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+.background {
+  fill: none;
+  pointer-events: all;
+}
+
+.mpio {fill : #ddc;}
+
+.mpio-borde {
+  fill: none;
+  stroke: #fff;
+  stroke-linejoin: round;
+  stroke-width: 0.5;}
+ 
+.depto-borde {
+  fill: none;
+  stroke: #fff;
+  stroke-linejoin: round;
+  stroke-width: 2;}
+  
+#feature {
+  fill: #ccc;
+  cursor: pointer;
+}
+
+.mesh {
+  fill: none;
+  stroke: #fff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+</style>
+<body>
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script src="https://d3js.org/d3-queue.v3.min.js"></script>
+<script type='text/javascript' src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+<script>
+
+var width = 600,
+    height = 600,
+    active = d3.select(null),
+    div_aux = "";
+
+var projection = d3.geo.mercator()
+	.scale(1300)
+	.translate([width / 2, height / 2])
+	.center([-61,43])
+	.rotate([2,3,2]);
+
+var path = d3.geo.path()
+	.projection(projection);
+
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+	
+svg.append("rect")
+    .attr("class", "background")
+    .attr("width", width)
+    .attr("height", height)
+    .on("click", reset);
+	
+var g = svg.append("g")
+    .style("stroke-width", "1.5px");
+/* 
+ogr2ogr -f GeoJSON depts.json depto.shp -s_srs EPSG:26986 -t_srs EPSG:4326
+topojson --id-property NOMBRE_DPT -p name=NOMBRE_DPT -p name -o colombia-departamentos.json depts.json
+*/
+
+function ready(error, co, municipio, departamento){
+    if(error) throw error;
+            
+    g.selectAll(".mpio")
+        .data(topojson.feature(co, co.objects.depts).features)
+        .enter().append("path")
+        .attr("class", function(d) { return "mpios" + "_" + d.properties.dpt; })
+        .attr("id", "feature")
+        .attr("d", path)
+        .style("fill", function(d) { return pintar(d, departamento, "minas")})
+        .on("click", function (d) { clicked( this, d, co) });
+        
+    g.append("path")
+        .datum(topojson.mesh(co, co.objects.depts, function(a, b) { return a !== b; }))
+        .attr("d", path)
+        .attr("class", "depto-borde");
+}
+
+function pintar(d, localidad, tipo_violencia){
+    var color = "";
+    for (var i=0; i < localidad.length; i++){
+        if(d.properties.dpt == localidad[i].dpt){
+            if(parseFloat(localidad[i].si_por) > 0.5)
+                return tonalidadSI(localidad[i].amena)   
+            else
+                return tonalidadNO(localidad[i].amena)  
+        }
+    }
+}
+
+function tonalidadSI(indicador){
+    var color = "";
+    switch (indicador) {
+        case 0:
+            color = "#ff0000";
+            break;
+        case 1:
+            color = "#ec4444";
+            break;
+        case 2:
+            color = "#ef6d6d";
+            break;
+        case 3:
+            color = "#f1a5a5";
+            break;
+    }
+    return color
+}
+
+
+function tonalidadNO(indicador){
+    var color = "";
+    switch (indicador) {
+        case 0:
+            color = "#007fff";
+            break;
+        case 1:
+            color = "#4aa2fb";
+            break;
+        case 2:
+            color = "#81bbf7";
+            break;
+        case 3:
+            color = "#b5d5f7";
+            break;
+    }
+    return color
+}
+
+function clicked(obj, d, co){
+    
+    if (active.node() === obj) return reset();
+    active.classed("active", false);
+    active = d3.select(obj).classed("active", true);
+
+    var bounds = path.bounds(d),
+      dx = bounds[1][0] - bounds[0][0],
+      dy = bounds[1][1] - bounds[0][1],
+      x = (bounds[0][0] + bounds[1][0]) / 2,
+      y = (bounds[0][1] + bounds[1][1]) / 2,
+      scale = .9 / Math.max(dx / width, dy / height),
+      translate = [width / 2 - scale * x, height / 2 - scale * y];
+
+    g.transition()
+      .duration(750)
+      .style("stroke-width", 1.5 / scale + "px")
+      .attr("transform", "translate(" + translate + ")scale(" + scale + ")");
+      
+    g.append("path")
+        .datum(topojson.mesh(co, co.objects.mpios, function(a, b) { 
+            if(a.properties.dpt == d.properties.dpt){
+                return a !== b; 
+            }
+        }))
+        .attr("id", "municipios")
+        .attr("d", path)
+        .attr("class", "mpio-borde");
+        
+    g.selectAll(".mpio")
+        .data(topojson.feature(co, co.objects.mpios).features)
+        .enter().append("path")
+        .attr("class", function(d) { return "mpios" + "_" + d.id; });
+}
+
+function reset() {
+    active.classed("active", false);
+    active = d3.select(null);
+        
+    g.transition()
+      .duration(750)
+      .style("stroke-width", "1.5px")
+      .attr("transform", "");
+   d3.select("#municipios").remove("path");
+}
+
+d3.queue()
+    .defer(d3.json, "colombia-municipios.json")
+    .defer(d3.json, "municipios.json")
+    .defer(d3.json, "departamentos.json")
+    .await(ready);
+
+</script>
